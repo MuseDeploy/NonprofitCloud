@@ -1,0 +1,183 @@
+minimum_cumulusci_version: '3.64.0'
+project:
+    name: NonprofitCloud
+    package:
+        name: Nonprofit Cloud Demo
+        api_version: '55.0'
+    dependencies:
+        - github: 'https://github.com/SalesforceFoundation/NPSP'
+        - github: 'https://github.com/SalesforceFoundation/PMM'
+        - github: 'https://github.com/SalesforceFoundation/OutboundFunds'
+    git:
+        default_branch: 'main'
+    source_format: sfdx
+sources:
+    npsp:
+        github: 'https://github.com/SalesforceFoundation/NPSP'
+    pmm: 
+        github: 'https://github.com/SalesforceFoundation/PMM'
+    obf:
+        github: 'https://github.com/SalesforceFoundation/OutboundFunds'
+    grants:
+        github: 'https://github.com/SalesforceFoundation/GrantsManagementInstaller'
+
+tasks:
+    robot:
+        options:
+            suites: robot/NonprofitCloud/tests
+            options:
+                outputdir: robot/NonprofitCloud/results
+
+    robot_testdoc:
+        options:
+            path: robot/NonprofitCloud/tests
+            output: robot/NonprofitCloud/doc/NonprofitCloud_tests.html
+
+    run_tests:
+        options:
+            required_org_code_coverage_percent: 75
+
+flows:
+    config_dev:
+        steps:
+            3:
+                flow: customer_enablement
+                
+    customer_enablement:
+        description: Applies all post-install configuration for NPSP, PMM, and OutboundFunds
+        steps:
+            1:
+                flow: config_npsp
+            2:
+                flow: config_pmm
+            3:
+                flow: config_obf
+
+    config_npsp:
+        description: Applies NPSP post-install configuration
+        steps:
+            1:
+                flow: npsp:config_managed
+
+    config_pmm_data:
+        description: Loads the PMM sample dataset
+        steps:
+            1:
+                task: pmm:disable_tdtm_trigger_handlers
+                ui_options:
+                    name: Disable NPSP TDTM Triggers
+            2:
+                task: pmm:load_dataset
+                options:
+                    drop_missing_schema: True
+                ui_options:
+                    name: Load PMM sample dataset
+            3:
+                task: pmm:restore_tdtm_trigger_handlers
+                ui_options:
+                    name: Re-enable NPSP TDTM Triggers
+            #4:
+            #    flow: setup_alternate_field_sets
+            5:
+                task: pmm:update_service_session_names
+                ui_options:
+                    name: Update Service Session Names
+
+    config_pmm_community:
+        description: Creates and configures the PMM community
+        steps:
+            1:
+                task: pmm:create_community
+                ui_options:
+                    name: Create PMM Community
+            2:
+                task: pmm:update_experience_cloud_OWDs
+                ui_options:
+                    name: Update Experience Cloud Org-Wide Defaults
+            3:
+                task: util_sleep
+                ui_options:
+                    name: Wait for OWD update
+            4:
+                task: pmm:create_community_owner
+                ui_options:
+                    name: Create PMM Community Owner
+            5:
+                task: pmm:deploy_experience_cloud
+                ui_options:
+                    name: Deploy Experience Cloud Config
+            6:
+                task: pmm:create_community_user
+                ui_options:
+                    name: Create PMM Community User
+            7:
+                task: pmm:publish_community
+                ui_options:
+                    name: Publish PMM Community
+            8:
+                task: pmm:add_community_login_button
+                ui_options:
+                    name: Add Community Login Button
+
+    config_pmm:
+        description: Applies PMM post-install configuration
+        steps:
+            1:
+                task: pmm:deploy_customer_profiles
+                ui_options:
+                    name: "Deploy Program Management Profile"
+            2:
+                task: pmm:deploy_post
+                ui_options:
+                    reports:
+                        name: "Deploy Folder of Unmanaged Reports"
+            3:
+                flow: config_pmm_data
+            4:
+                flow: config_pmm_community
+
+    config_obf:
+        description: Applies OutboundFunds post-install configuration
+        steps:
+            1:
+                task: obf:load_dataset
+                ui_options:
+                    name: Load Outbound Funds sample dataset
+                    is_required: False
+
+orgs:
+    scratch:
+        feature:
+            config_file: dev.json
+        beta:
+            config_file: dev.json
+        release:
+            config_file: dev.json
+
+plans:
+    install:
+        slug: install
+        title: Install Nonprofit Cloud Demo
+        tier: primary
+        is_listed: True
+        preflight_message: "This will install NPSP, PMM, and Outbound Funds (OBF)"
+        post_install_message: "Thanks for installing the demo!  If this were a real install, you'd get helpful links for next steps"
+        error_message: "This is just a demo.  Normally this would include next steps for resolving the error"
+        checks:
+            - when: "not tasks.check_my_domain_active()"
+              action: error
+              message: "Please enable My Domain in your org prior to installing."
+            - when: "'PID_Customer_Community_Plus_Login' not in tasks.get_available_licenses()"
+              action: error
+              message: "This demo requires Customer Community Plus Login licenses. Please coordinate with your Salesforce account executive to be sure you have the correct licenses set up in your org."
+            - when: "'Network' not in tasks.check_sobjects_available()"
+              action: error
+              message: "Please ensure that Salesforce Communities is available in your org prior to installing."
+            - when: "not tasks.check_chatter_enabled()"
+              action: error
+              message: "Program Management Module requires Chatter. Please enable Chatter in your org and try again."
+        steps:
+            1:
+                flow: update_dependencies
+            1:
+                flow: customer_enablement
