@@ -148,11 +148,11 @@ flows:
 orgs:
     scratch:
         feature:
-            config_file: dev.json
+            config_file: orgs/dev.json
         beta:
-            config_file: dev.json
+            config_file: orgs/dev.json
         release:
-            config_file: dev.json
+            config_file: orgs/dev.json
 
 plans:
     install:
