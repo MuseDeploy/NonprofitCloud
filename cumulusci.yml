@@ -160,7 +160,7 @@ plans:
         title: Install Nonprofit Cloud Demo
         tier: primary
         is_listed: True
-        org_providers:
+        allowed_org_providers:
             - user
             - devhub
         preflight_message: "This will install NPSP, PMM, and Outbound Funds (OBF)"
